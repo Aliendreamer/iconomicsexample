@@ -143,7 +143,13 @@ def main():
     if not (ROOT / "js" / "node_modules").is_dir():
         raise SystemExit("js dependencies missing — run: npm --prefix js install")
 
-    samples = sorted(DATA_RAW.glob("*.xlsx"))
+    # Only the ledger-shaped files: cleanup requires a counterparty column, which
+    # a bank statement and a trial balance deliberately do not have. Parity for
+    # reconcile / vat-return / statements is not checked because those three have
+    # no JavaScript implementation yet — see the status table in CLAUDE.md.
+    samples = sorted(DATA_RAW.glob("ledger-*.xlsx")) + sorted(
+        DATA_RAW.glob("journal-*.xlsx")
+    )
     if not samples:
         raise SystemExit("no sample data — run: python tools/make_sample_data.py")
 

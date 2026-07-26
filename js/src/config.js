@@ -24,6 +24,12 @@ export const CANONICAL_FIELDS = [
   'vat_rate',
   'account',
   'currency',
+  // Used by the Python-only workflows. Listed here too because both
+  // implementations validate config/headers.yaml against this list, and a field
+  // known to only one of them makes the other reject a shared config file.
+  'direction',
+  'debit',
+  'credit',
 ];
 
 export class ConfigError extends Error {}
