@@ -14,8 +14,12 @@ to do their job with Claude Code. It has two jobs, and it fails if it does only 
 2. **Be legible as a demo.** The README narrates how a non-programmer drives Claude
    through these tasks, so the reader can picture doing it with their own books.
 
-Audience: an accountant, not a developer. Setup must be `pip install -e .` and nothing
-more. No Excel installation required, cross-platform.
+Audience is split, and both halves matter. An accountant who wants the tool must get it
+working with one command (`pip install -e py/` or `npm --prefix js install`) and never need
+to read code. A developer evaluating Claude Code must be able to read the accounting logic
+in a language they know — hence the dual Python/JavaScript implementation described below.
+
+No Excel installation required, cross-platform.
 
 ## Non-goals
 
@@ -46,20 +50,72 @@ restatement work that is miserable by hand and trivial to automate.
 Three layers, deliberately separated so each is understandable and testable alone.
 
 ```
-.claude/skills/*        Thin. Instructions telling Claude which library calls to make,
+.claude/skills/*        Thin. Instructions telling Claude which CLI command to run,
                         what to ask the user, how to present results. No logic.
-src/iconomics/*         All computation. Pure Python, no Claude dependency, importable
-                        and testable without any agent involved.
+py/src/iconomics/*      All computation, in Python.
+js/src/*                All computation, in JavaScript. Same behaviour, same CLI.
 data/ + config/         Sample inputs, golden outputs, and the rules (rates, accounts).
 ```
 
-The library must be usable standalone. If someone deletes `.claude/`, the Python package
-still works and the tests still pass. This keeps the demo honest: Claude is the interface,
-not a load-bearing part of the arithmetic.
+The libraries must be usable standalone. If someone deletes `.claude/`, both packages still
+work and the tests still pass. This keeps the demo honest: Claude is the interface, not a
+load-bearing part of the arithmetic.
+
+## Dual implementation: Python and JavaScript
+
+The audience for this demo reads JavaScript. A Python-only toolkit would ask them to take
+the most interesting part — the actual accounting logic — on faith. So the toolkit is
+implemented twice, in full.
+
+The obvious risk is drift: six months from now the JavaScript rounds VAT one way and the
+Python another, and nobody notices until a filed return is wrong. Three mechanisms prevent
+that, and they are the reason this is a design decision rather than just twice the typing.
+
+**1. A shared CLI contract.** Both implementations expose byte-identical command surfaces:
+
+```
+python -m iconomics vat-return --period 2026-03 --in data/raw --out output/
+node js/bin/iconomics.js vat-return --period 2026-03 --in data/raw --out output/
+```
+
+Same subcommands, same flags, same exit codes, same stdout summary format. This is what
+keeps the skill layer thin — a skill names a subcommand, not a language. Which runtime
+executes it is set once in `config/runtime.yaml` (`python` or `node`), so the four skills
+are written once and work for either audience.
+
+**2. One set of golden files.** `data/expected/` is not per-language. Both implementations
+are tested against the same expected workbooks. Neither gets to be the reference.
+
+**3. A parity test.** `tests/test_parity.py` runs both implementations over every sample
+input and diffs the resulting workbooks cell by cell, comparing values rather than file
+bytes. Any divergence in figures, row counts, or exception classification fails the build.
+This is the load-bearing mechanism; the other two are how it stays cheap to run.
+
+**Library choices, and why they differ from the Python.**
+
+| Concern | Python | JavaScript | Note |
+|---|---|---|---|
+| Spreadsheet I/O | openpyxl | exceljs | Both write formatted multi-sheet output with live formulas. SheetJS was rejected: the community edition's styling support is too limited for presentation-ready statements. |
+| Money | `decimal.Decimal` | decimal.js | Chosen over integer-minor-units and big.js specifically because decimal.js supports explicit rounding modes matching Python's, so `ROUND_HALF_UP` means the same thing in both. Parity is a library-selection criterion here, not an afterthought. |
+| Tabular manipulation | pandas | plain arrays of objects | No JS equivalent of pandas is worth the dependency at this data scale. The JS implementation is more explicit and, for a JS-reading audience, easier to follow. |
+
+The module boundaries described below are identical across both languages — `workbook`,
+`money`, `vat`, `reconcile`, `statements`, `coa` exist in both, with the same
+responsibilities and the same interfaces adapted to each language's idiom. The contracts
+are specified once because they are genuinely one design.
+
+**Setup cost to the reader.** Each implementation stands alone. An accountant who only
+wants the tool runs `pip install -e py/` and never learns that the JavaScript exists. The
+README presents Python first for that reason, with the JavaScript as an equal alternative
+rather than an appendix.
 
 ### Module contracts
 
-Each module has one purpose, a narrow interface, and declared dependencies.
+Each module has one purpose, a narrow interface, and declared dependencies. The contracts
+below describe both implementations — module names are given in Python form for brevity,
+and the JavaScript modules mirror them exactly (`workbook.js`, `money.js`, and so on). The
+`Depends on` lines name the Python libraries; substitute the JavaScript equivalents from the
+table above.
 
 **`workbook.py`** — the only module that touches `.xlsx`.
 - *Does:* loads a spreadsheet into a canonical `DataFrame`; writes formatted multi-sheet
@@ -194,14 +250,28 @@ The README is a deliverable, not documentation. Structure:
 ## Testing
 
 - **Golden-file tests** — each workflow run against `data/raw/` and compared to
-  `data/expected/`. Catches regressions in output shape and figures.
+  `data/expected/`. Run for both implementations against the same expected files.
+- **Parity tests** — both implementations run over every sample input, outputs diffed cell
+  by cell on values. Any divergence fails the build. This is what makes two
+  implementations safe to maintain.
 - **Invariant tests** — debits equal credits; balance sheet balances; VAT journal totals
-  equal declaration totals; BGN→EUR→BGN round-trips within one cent.
-- **Boundary tests** — no `float` in any monetary field after `workbook.load`.
+  equal declaration totals; BGN→EUR→BGN round-trips within one cent. Written twice, once
+  per language, because they test the arithmetic rather than the plumbing.
+- **Boundary tests** — no float money crosses the `workbook` boundary in either language.
+  In Python, assert `Decimal`. In JavaScript, assert `Decimal` instances from decimal.js
+  and reject bare `number` in monetary fields.
 - **Messy-input unit tests** — each date format, each number format, each duplicate-vendor
   variant, tested individually so a parsing failure names the exact case.
 
-Run: `pytest`. Single test: `pytest tests/test_vat.py::test_reverse_charge`.
+Commands:
+
+```
+pytest                                          # Python suite
+pytest tests/test_vat.py::test_reverse_charge    # single Python test
+npm --prefix js test                            # JavaScript suite
+npm --prefix js test -- -t "reverse charge"      # single JavaScript test
+pytest tests/test_parity.py                     # cross-language parity
+```
 
 ## Error handling
 
