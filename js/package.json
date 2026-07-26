@@ -1,0 +1,19 @@
+{
+  "name": "iconomics",
+  "version": "0.1.0",
+  "description": "Bulgarian accounting toolkit — Excel workflows for the euro era",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "bin": { "iconomics": "./bin/iconomics.js" },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "decimal.js": "^10.4.3",
+    "exceljs": "^4.4.0",
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.0"
+  }
+}

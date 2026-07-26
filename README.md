@@ -35,13 +35,54 @@ front of you for a decision.
 
 ## Status
 
-Design complete, implementation not yet started. The full design is in
+**Ledger cleanup works, in both languages.** The other three workflows are designed
+but not built. The full design is in
 [`docs/superpowers/specs/2026-07-26-iconomics-design.md`](docs/superpowers/specs/2026-07-26-iconomics-design.md).
 
-Planned in two steps:
+## Try it
 
-1. **The four workflows above** — Python and JavaScript implementations, sample data, skills
-2. **SAF-T export** — Bulgaria's Standard Audit File for Tax, mandatory since January 2026
+```bash
+uv venv --python 3.12 && uv pip install -e py/
+npm --prefix js install
+
+# Either of these — identical output
+.venv/bin/python -m iconomics cleanup --in data/raw/ledger-2026-03.xlsx --out output/
+node js/bin/iconomics.js cleanup --in data/raw/ledger-2026-03.xlsx --out output-js/
+
+.venv/bin/python tools/check_parity.py    # prove the two agree, cell by cell
+```
+
+`data/raw/ledger-2026-03.xlsx` is the interesting one. It contains, deliberately:
+three spellings of the same vendor, a credit note in accounting parentheses, a
+correction entry still booked in BGN months after the changeover, the 9% reduced
+rate next to a 0% intra-EU supply, a duplicated transaction, a row with no
+counterparty, an Excel serial date among text dates, and an em dash where an
+amount should be. Running it produces:
+
+```
+rows in: 14 · rows clean: 13 · changes: 4 · exceptions: 1
+```
+
+The one exception is the em dash — the toolkit declined to invent a number. The
+four changes are two vendor merges and one BGN row restated, net and VAT. All of
+it is written to a `Changes` sheet with the before value, the after value, and the
+reason.
+
+`ledger-2026-q1-large.xlsx` is 48 rows, for when reading the output by hand stops
+being reasonable.
+
+## Driving it from Claude
+
+Three skills in `.claude/skills/` turn the CLI into something you talk to:
+
+| Skill | Say something like |
+|---|---|
+| `ledger-cleanup` | "clean up the March ledger" |
+| `euro-restatement` | "restate the 2025 figures in euro" |
+| `exception-triage` | "why were those rows rejected?" |
+
+The skills read `config/runtime.yaml` to decide whether to run the Python or the
+JavaScript implementation, so they are written once and work for either.
 
 ## Design notes
 
@@ -52,8 +93,10 @@ Planned in two steps:
   When a rate changes, you edit YAML, not source.
 - **The libraries stand alone.** Delete the Claude skills and the code still works and the
   tests still pass. Claude is the interface, not a load-bearing part of the arithmetic.
-- **Two languages, one behaviour.** Python and JavaScript implementations are verified
-  against the same golden output files, so they cannot drift apart silently.
+- **Two languages, one behaviour.** `tools/check_parity.py` runs both implementations
+  over every sample file and diffs the output workbooks cell by cell, so they cannot
+  drift apart silently. It has already caught one real bug: openpyxl and exceljs
+  disagreed about whether an empty string is a blank cell.
 
 ## Not what this is
 

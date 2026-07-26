@@ -19,5 +19,8 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Generated output — sample inputs and golden files are committed, run output is not
+# Generated output — sample inputs are committed, run output is not
 output/
+output-js/
+output-*/
+

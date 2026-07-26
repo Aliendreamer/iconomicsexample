@@ -68,8 +68,20 @@ class Money:
         self._require_same_currency(other)
         return Money(q2(self.amount - other.amount), self.currency)
 
+    def scale(self) -> int:
+        """Decimal places to render: at least 2, more if the value has them.
+
+        Relying on Decimal's own repr would make output depend on how the value
+        was constructed — Decimal("42") prints "42" but Decimal("42.00") prints
+        "42.00". Money is always shown with at least two decimals, which reads
+        correctly to an accountant and matches the JavaScript implementation
+        exactly. The change log embeds these strings and the parity test
+        compares them, so the rule has to be explicit on both sides.
+        """
+        return max(2, -self.amount.as_tuple().exponent)
+
     def __str__(self) -> str:
-        return f"{self.amount} {self.currency}"
+        return f"{self.amount:.{self.scale()}f} {self.currency}"
 
 
 def default_currency_for(when: date) -> str:

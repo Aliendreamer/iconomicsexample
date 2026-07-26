@@ -218,6 +218,11 @@ def _serialize(value: object) -> object:
         return float(value.amount)
     if isinstance(value, Decimal):
         return float(value)
+    # An empty string and a blank cell must not be different things: openpyxl
+    # reads "" back as None while exceljs reads it back as "", which would make
+    # the two implementations disagree on cells that are both simply empty.
+    if value == "":
+        return None
     return value
 
 
