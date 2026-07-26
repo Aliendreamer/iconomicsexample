@@ -1,0 +1,49 @@
+# Input column headers, mapped to the canonical field names the toolkit uses.
+#
+# Add your own aliases here rather than renaming columns in the source files —
+# keeping the original export untouched is what makes the audit trail credible.
+# Matching is case-insensitive and ignores surrounding whitespace and trailing
+# punctuation, so "ДАТА:" and "Дата" both match "дата".
+
+date:
+  - дата
+  - дата на документа
+  - дата на фактурата
+  - date
+counterparty:
+  - контрагент
+  - партньор
+  - доставчик
+  - клиент
+  - counterparty
+  - vendor
+vat_number:
+  - ддс номер
+  - идент. номер по ддс
+  - vat number
+  - vat no
+description:
+  - описание
+  - основание
+  - description
+  - memo
+amount_net:
+  - сума без ддс
+  - данъчна основа
+  - сума
+  - net amount
+  - amount
+vat_amount:
+  - ддс
+  - данък
+  - vat amount
+vat_rate:
+  - ддс %
+  - ставка
+  - vat rate
+account:
+  - сметка
+  - account
+currency:
+  - валута
+  - currency

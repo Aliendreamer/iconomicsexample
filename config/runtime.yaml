@@ -1,0 +1,3 @@
+# Which implementation the Claude skills invoke.
+# Both produce identical output — pick whichever you'd rather read and extend.
+runtime: python   # python | node

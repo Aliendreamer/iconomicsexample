@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "iconomics"
+version = "0.1.0"
+description = "Bulgarian accounting toolkit — Excel workflows for the euro era"
+requires-python = ">=3.11"
+dependencies = ["openpyxl>=3.1", "PyYAML>=6.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4"]
+
+[project.scripts]
+iconomics = "iconomics.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
