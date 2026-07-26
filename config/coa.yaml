@@ -1,0 +1,84 @@
+# Chart of accounts, mapped to financial statement lines.
+#
+# ⚠ ILLUSTRATIVE — REPLACE WITH YOUR FIRM'S СМЕТКОПЛАН
+#
+# Bulgarian law requires companies to use a statutory chart of accounts, and
+# non-PIE entities apply National Accounting Standards issued by the Ministry of
+# Finance. Sources confirming the requirement:
+#   https://www.icaew.com/technical/by-country/europe/bulgaria/accounting-in-bulgaria
+#   https://www.ides.bg/media/2143/accountancy_act.pdf
+#
+# What research on 2026-07-26 did NOT find was a citable listing of the statutory
+# account codes themselves. The codes below follow the conventional Bulgarian
+# group structure (2x assets, 4x settlements, 5x cash, 6x expenses, 7x revenue)
+# but are NOT verified against the official chart. Your accountant will know the
+# correct ones immediately — replace this file rather than trusting it.
+#
+# The code treats this as data, which is the right design regardless: firms extend
+# the statutory chart with their own sub-accounts.
+#
+# side: which balance is normal for the account — debit or credit.
+
+accounts:
+  # Equity
+  "101": { name: Основен капитал, statement: balance_sheet, line: Собствен капитал, side: credit }
+  "122": { name: Неразпределена печалба, statement: balance_sheet, line: Собствен капитал, side: credit }
+
+  # Fixed assets
+  "203": { name: Сгради, statement: balance_sheet, line: Дълготрайни материални активи, side: debit }
+  "204": { name: Машини и оборудване, statement: balance_sheet, line: Дълготрайни материални активи, side: debit }
+  "241": { name: Амортизация, statement: balance_sheet, line: Амортизация, side: credit }
+
+  # Inventory
+  "302": { name: Материали, statement: balance_sheet, line: Материални запаси, side: debit }
+  "304": { name: Стоки, statement: balance_sheet, line: Материални запаси, side: debit }
+
+  # Settlements
+  "401": { name: Доставчици, statement: balance_sheet, line: Задължения към доставчици, side: credit }
+  "411": { name: Клиенти, statement: balance_sheet, line: Вземания от клиенти, side: debit }
+  "421": { name: Персонал, statement: balance_sheet, line: Задължения към персонала, side: credit }
+  # Kept as two lines, not one "Разчети по ДДС": a single line fed by accounts
+  # with opposite normal sides cannot be presented correctly.
+  "4531": { name: ДДС покупки, statement: balance_sheet, line: Вземания по ДДС, side: debit }
+  "4532": { name: ДДС продажби, statement: balance_sheet, line: Задължения по ДДС, side: credit }
+  "452": { name: Данък върху печалбата, statement: balance_sheet, line: Данъчни задължения, side: credit }
+
+  # Cash — also used to derive the cash movement summary
+  "501": { name: Каса, statement: balance_sheet, line: Парични средства, side: debit, cash: true }
+  "503": { name: Разплащателна сметка, statement: balance_sheet, line: Парични средства, side: debit, cash: true }
+
+  # Expenses
+  "601": { name: Разходи за материали, statement: profit_and_loss, line: Разходи за материали, side: debit }
+  "602": { name: Разходи за външни услуги, statement: profit_and_loss, line: Разходи за външни услуги, side: debit }
+  "604": { name: Разходи за заплати, statement: profit_and_loss, line: Разходи за персонала, side: debit }
+  "605": { name: Осигуровки, statement: profit_and_loss, line: Разходи за персонала, side: debit }
+  "606": { name: Други разходи, statement: profit_and_loss, line: Други разходи, side: debit }
+  "603": { name: Разходи за амортизации, statement: profit_and_loss, line: Амортизации, side: debit }
+
+  # Revenue
+  "701": { name: Приходи от продажби на стоки, statement: profit_and_loss, line: Приходи от продажби, side: credit }
+  "703": { name: Приходи от услуги, statement: profit_and_loss, line: Приходи от продажби, side: credit }
+  "709": { name: Други приходи, statement: profit_and_loss, line: Други приходи, side: credit }
+
+# Statement line order. Lines not listed appear after these, alphabetically.
+line_order:
+  profit_and_loss:
+    - Приходи от продажби
+    - Други приходи
+    - Разходи за материали
+    - Разходи за външни услуги
+    - Разходи за персонала
+    - Амортизации
+    - Други разходи
+  balance_sheet:
+    - Дълготрайни материални активи
+    - Амортизация
+    - Материални запаси
+    - Вземания от клиенти
+    - Парични средства
+    - Вземания по ДДС
+    - Собствен капитал
+    - Задължения по ДДС
+    - Задължения към доставчици
+    - Задължения към персонала
+    - Данъчни задължения

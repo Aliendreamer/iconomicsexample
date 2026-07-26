@@ -1,0 +1,40 @@
+# Bulgarian VAT rates and treatment rules.
+#
+# Rates researched 2026-07-26. Sources:
+#   https://www.vatupdate.com/2026/02/10/bulgaria-comprehensive-vat-country-guide-2026/
+#   https://taxsummaries.pwc.com/bulgaria/corporate/other-taxes
+# Re-verify before relying on these for a filing — rates change by statute.
+
+rates:
+  standard: 20      # default rate
+  reduced: 9        # accommodation, printed and e-publications, certain baby products
+  zero: 0           # intra-EU supplies, international passenger transit
+
+# Deadline for the monthly return and the accompanying journals, as a day of the
+# following month.
+filing_day: 14
+
+# The country prefix that marks a domestic counterparty. Anything else with a
+# valid-looking VAT number is treated as an EU counterparty.
+domestic_prefix: BG
+
+# ---------------------------------------------------------------------------
+# Official declaration cell numbers.
+#
+# The справка-декларация has numbered cells, but a citable listing of that
+# numbering was NOT found in accessible sources on 2026-07-26 — only confirmation
+# that the return consists of a declaration plus the purchase and sales journals,
+# filed by the 14th.
+#
+# The toolkit therefore produces a declaration with DESCRIPTIVE line labels and
+# leaves the official cell numbers to be filled in here by someone who has the
+# НАП form specification. Put the cell number against each line key below and it
+# will appear in the output as an extra column.
+#
+# This is deliberately empty rather than guessed. A wrong cell number on a filed
+# return is worse than a missing one.
+# ---------------------------------------------------------------------------
+declaration_cells: {}
+  # base_standard: "11"
+  # vat_standard: "21"
+  # ... fill in from the official form

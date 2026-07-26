@@ -22,12 +22,16 @@ what this toolkit is for.
 
 ## What it does
 
-| Workflow | The job it replaces |
-|---|---|
-| **Ledger cleanup** | Untangling an ugly export: mixed date formats, numbers stored as text, duplicate vendors, mixed BGN/EUR rows |
-| **Bank reconciliation** | Matching statement lines to ledger entries and chasing the ones that do not match |
-| **VAT return** | Building the sales journal, purchase journal, declaration, and VIES list for the monthly filing |
-| **Financial statements** | Rolling a trial balance into P&L, balance sheet, and cash flow with comparatives restated to EUR |
+| Workflow | The job it replaces | Python | JS |
+|---|---|---|---|
+| **Ledger cleanup** | Untangling an ugly export: mixed date formats, numbers stored as text, duplicate vendors, mixed BGN/EUR rows | yes | yes |
+| **Bank reconciliation** | Matching statement lines to ledger entries and chasing the ones that do not match | yes | not yet |
+| **VAT return** | Building the sales journal, purchase journal, declaration, and VIES list for the monthly filing | yes | not yet |
+| **Financial statements** | Rolling a trial balance into P&L and balance sheet, comparatives restated to EUR | yes | not yet |
+
+Parity between the two implementations is verified for `cleanup` and `generate`.
+The three newer workflows are Python-only for now, and `tools/check_parity.py`
+covers exactly what it can — it does not pretend otherwise.
 
 Every figure the toolkit produces carries a reference back to the source row it came from.
 Nothing is silently dropped and nothing is silently guessed — anything ambiguous is put in
@@ -35,8 +39,8 @@ front of you for a decision.
 
 ## Status
 
-**Ledger cleanup works, in both languages.** The other three workflows are designed
-but not built. The full design is in
+**All four workflows work in Python.** The JavaScript implementation currently
+covers two of them — see the table below. The full design is in
 [`docs/superpowers/specs/2026-07-26-iconomics-design.md`](docs/superpowers/specs/2026-07-26-iconomics-design.md).
 
 ## Try it
@@ -73,7 +77,7 @@ being reasonable.
 
 ## Driving it from Claude
 
-Six skills in `.claude/skills/` turn the CLI into something you talk to:
+Nine skills in `.claude/skills/` turn the CLI into something you talk to:
 
 | Skill | Say something like |
 |---|---|
@@ -82,6 +86,9 @@ Six skills in `.claude/skills/` turn the CLI into something you talk to:
 | `ledger-cleanup` | "clean up the March ledger" |
 | `euro-restatement` | "restate the 2025 figures in euro" |
 | `exception-triage` | "why were those rows rejected?" |
+| `bank-reconciliation` | "reconcile the March bank statement" |
+| `bg-vat-return` | "prepare the VAT return for March" |
+| `financial-statements` | "produce the P&L and balance sheet" |
 | `explain-toolkit` | "why does it say 1234 when my file says 1.234?" |
 
 The skills read `config/runtime.yaml` to decide whether to run the Python or the
@@ -142,6 +149,25 @@ a file to match:
 Generation is deterministic — no randomness — so the same arguments always produce
 the same file, and generated fixtures can be committed and diffed. Generate a mess,
 then run `cleanup` on it: that pairing is the demo.
+
+### Two standing caveats
+
+Both are stated in the skills and in the output itself, not buried here.
+
+**The VAT declaration is not the official form.** It gets the figures right and
+proves the journals tie to the declaration, but the справка-декларация's numbered
+cells could not be verified from any accessible source, so the declaration uses
+descriptive labels and `config/vat-rates.yaml` ships `declaration_cells` empty for
+someone with the НАП spec to fill in. A wrong cell number on a filed return is
+worse than a missing one.
+
+**The chart of accounts is illustrative.** `config/coa.yaml` follows the
+conventional Bulgarian group structure but is not verified against the statutory
+сметкоплан, which research did not turn up in citable form. It is one file to
+replace, and unmapped accounts are reported rather than dropped.
+
+**There is no cash flow statement.** That needs movement analysis, not a trial
+balance. With a prior period you get a cash movement summary, labelled as such.
 
 ## Design notes
 

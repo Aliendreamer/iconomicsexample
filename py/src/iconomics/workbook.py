@@ -19,12 +19,17 @@ from iconomics.money import Money, default_currency_for
 from iconomics.parsing import (
     UnparseableAmount,
     UnparseableDate,
+    normalize_direction,
     normalize_header,
     parse_amount,
     parse_date,
 )
 
 REQUIRED_FIELDS = ("date", "counterparty", "amount_net")
+#: A bank statement has no counterparty column — only a description.
+STATEMENT_FIELDS = ("date", "amount_net")
+#: A trial balance has no dates at all.
+TRIAL_BALANCE_FIELDS = ("account",)
 _HEADER_FILL = PatternFill("solid", fgColor="DDDDDD")
 
 
@@ -44,6 +49,7 @@ class Row:
     vat_amount: Money | None = None
     vat_rate: Decimal | None = None
     account: str | None = None
+    direction: str | None = None
     extra: dict[str, object] = field(default_factory=dict)
 
 
@@ -107,8 +113,17 @@ def _cell(values, mapping, name):
     return values[index]
 
 
-def load(path: Path, aliases: dict[str, str] | None = None) -> Ledger:
-    """Read a spreadsheet into canonical rows plus a list of row-level problems."""
+def load(
+    path: Path,
+    aliases: dict[str, str] | None = None,
+    required: tuple[str, ...] = REQUIRED_FIELDS,
+) -> Ledger:
+    """Read a spreadsheet into canonical rows plus a list of row-level problems.
+
+    ``required`` names the columns the file must have. Ledgers need a
+    counterparty; bank statements do not, so callers pass a narrower set
+    rather than each growing its own loader.
+    """
     path = Path(path)
     resolved_aliases = aliases if aliases is not None else load_header_aliases()
 
@@ -120,10 +135,10 @@ def load(path: Path, aliases: dict[str, str] | None = None) -> Ledger:
 
     headers = all_rows[0]
     mapping, unmapped = _map_columns(headers, resolved_aliases)
-    for required in REQUIRED_FIELDS:
-        if required not in mapping:
+    for required_field in required:
+        if required_field not in mapping:
             raise MissingColumn(
-                f"{path} has no column mapping to {required!r}; "
+                f"{path} has no column mapping to {required_field!r}; "
                 "add an alias in config/headers.yaml"
             )
 
@@ -185,6 +200,7 @@ def load(path: Path, aliases: dict[str, str] | None = None) -> Ledger:
         vat_number_raw = _cell(values, mapping, "vat_number")
         account_raw = _cell(values, mapping, "account")
         description_raw = _cell(values, mapping, "description")
+        direction = normalize_direction(_cell(values, mapping, "direction"))
 
         rows.append(
             Row(
@@ -198,6 +214,7 @@ def load(path: Path, aliases: dict[str, str] | None = None) -> Ledger:
                 vat_amount=vat_amount,
                 vat_rate=vat_rate,
                 account=str(account_raw).strip() if account_raw else None,
+                direction=direction,
                 extra=extra,
             )
         )
@@ -205,6 +222,95 @@ def load(path: Path, aliases: dict[str, str] | None = None) -> Ledger:
     return Ledger(
         rows=rows, problems=problems, unmapped_headers=unmapped, source_path=path
     )
+
+
+@dataclass(frozen=True)
+class TrialLine:
+    source_row: int
+    account: str
+    name: str
+    debit: Money
+    credit: Money
+
+
+@dataclass(frozen=True)
+class TrialBalance:
+    lines: list[TrialLine]
+    problems: list[Problem]
+    source_path: Path
+
+
+def load_trial_balance(
+    path: Path, aliases: dict[str, str] | None = None, currency: str = "EUR"
+) -> TrialBalance:
+    """Read a trial balance: account code, name, debit and credit balances.
+
+    A separate loader because a trial balance has no dates and no counterparties
+    — forcing it through load() would mean weakening the ledger contract for
+    every caller.
+    """
+    path = Path(path)
+    resolved = aliases if aliases is not None else load_header_aliases()
+
+    sheet = load_workbook(path, data_only=True).active
+    all_rows = list(sheet.iter_rows(values_only=True))
+    if not all_rows:
+        raise MissingColumn(f"{path} is empty")
+
+    headers = all_rows[0]
+    mapping, unmapped = _map_columns(headers, resolved)
+    if "account" not in mapping:
+        raise MissingColumn(
+            f"{path} has no column mapping to 'account'; add an alias in "
+            "config/headers.yaml"
+        )
+    if "debit" not in mapping or "credit" not in mapping:
+        raise MissingColumn(
+            f"{path} needs both a debit and a credit column; add aliases in "
+            "config/headers.yaml"
+        )
+
+    lines: list[TrialLine] = []
+    problems: list[Problem] = []
+    zero = Money(Decimal("0.00"), currency)
+
+    for offset, values in enumerate(all_rows[1:], start=2):
+        if all(_is_blank(value) for value in values):
+            continue
+
+        account_raw = _cell(values, mapping, "account")
+        if _is_blank(account_raw):
+            problems.append(Problem(offset, "account", "(blank)", "empty cell"))
+            continue
+
+        amounts = {}
+        failed = False
+        for side in ("debit", "credit"):
+            raw = _cell(values, mapping, side)
+            if _is_blank(raw):
+                amounts[side] = zero
+                continue
+            try:
+                amounts[side] = Money(parse_amount(raw), currency)
+            except UnparseableAmount as exc:
+                problems.append(Problem(offset, side, _describe_raw(raw), str(exc)))
+                failed = True
+                break
+        if failed:
+            continue
+
+        name_raw = _cell(values, mapping, "description")
+        lines.append(
+            TrialLine(
+                source_row=offset,
+                account=str(account_raw).strip(),
+                name=str(name_raw or "").strip(),
+                debit=amounts["debit"],
+                credit=amounts["credit"],
+            )
+        )
+
+    return TrialBalance(lines=lines, problems=problems, source_path=path)
 
 
 def _serialize(value: object) -> object:

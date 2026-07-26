@@ -170,6 +170,22 @@ export function normalizeHeader(raw) {
     .toLowerCase();
 }
 
+const SALE_WORDS = ['продажб', 'приход', 'издаден', 'sale', 'output', 'revenue'];
+const PURCHASE_WORDS = ['покупк', 'разход', 'получен', 'purchase', 'input', 'expense'];
+
+/**
+ * Read a sale/purchase marker from a cell, or null if it says nothing.
+ * Matching is on word stems so grammatical endings need not be enumerated.
+ */
+export function normalizeDirection(raw) {
+  if (raw === null || raw === undefined) return null;
+  const text = String(raw).trim().toLowerCase();
+  if (!text) return null;
+  if (SALE_WORDS.some((stem) => text.includes(stem))) return 'sale';
+  if (PURCHASE_WORDS.some((stem) => text.includes(stem))) return 'purchase';
+  return null;
+}
+
 export function normalizeCounterparty(raw) {
   return String(raw).replace(WHITESPACE, ' ').trim().replace(/\.+$/, '').trim();
 }

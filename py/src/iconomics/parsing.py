@@ -169,6 +169,29 @@ def normalize_header(raw: str) -> str:
     return text.lower()
 
 
+_SALE_WORDS = ("продажб", "приход", "издаден", "sale", "output", "revenue")
+_PURCHASE_WORDS = ("покупк", "разход", "получен", "purchase", "input", "expense")
+
+
+def normalize_direction(raw: object) -> str | None:
+    """Read a sale/purchase marker from a cell, or None if it says nothing.
+
+    Bulgarian ledgers label this inconsistently — "Продажба", "Приход",
+    "Фактура издадена" all mean the same thing. Matching is on word stems so
+    that grammatical endings do not need enumerating.
+    """
+    if raw is None:
+        return None
+    text = str(raw).strip().casefold()
+    if not text:
+        return None
+    if any(stem in text for stem in _SALE_WORDS):
+        return "sale"
+    if any(stem in text for stem in _PURCHASE_WORDS):
+        return "purchase"
+    return None
+
+
 def normalize_counterparty(raw: str) -> str:
     """Canonicalize a counterparty name so cosmetic variants collapse together."""
     return _WHITESPACE.sub(" ", str(raw)).strip().rstrip(".").strip()

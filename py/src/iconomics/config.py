@@ -16,6 +16,9 @@ CANONICAL_FIELDS = (
     "vat_rate",
     "account",
     "currency",
+    "direction",
+    "debit",
+    "credit",
 )
 
 

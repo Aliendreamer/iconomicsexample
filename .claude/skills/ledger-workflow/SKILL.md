@@ -5,17 +5,27 @@ description: Use when the user wants the whole pipeline run end to end rather th
 
 # Ledger Workflow
 
-Runs the four single-purpose skills as one sequence:
+Runs the single-purpose skills as one sequence:
 
 ```
 generate-ledger  →  ledger-cleanup  →  euro-restatement  →  exception-triage
    (optional)          (per file)        (verification)      (interactive)
+                            │
+                            └─ then, if the data supports them:
+                                 bank-reconciliation   (needs a bank statement)
+                                 bg-vat-return         (needs rates + direction)
+                                 financial-statements  (needs a trial balance)
 ```
 
 Each stage is a skill in its own right. This skill decides the order, carries
 results between stages, and produces one consolidated report at the end. It does
 not reimplement any of them — read the relevant `SKILL.md` when you reach its
 stage and follow it.
+
+**The last three are conditional, not optional.** Run them when the inputs are
+present and skip them when they are not — but say which you skipped and why. A
+user who supplied only a ledger should be told that a VAT return needs a rate and
+a direction column, not left wondering why no return appeared.
 
 ## Stage 0 — Choose the inputs
 
@@ -80,6 +90,26 @@ This stage is interactive. Stop and ask; do not decide on the user's behalf what
 an unreadable value meant. If they ask you to add header aliases to
 `config/headers.yaml`, do it, then re-run Stage 2 for the affected files only and
 report the new exception counts.
+
+## Stage 4b — The conditional workflows
+
+After triage, check what the selected inputs actually support and run what they do.
+Classify each file once, at Stage 0, so this is a lookup rather than a guess:
+
+| If the inputs include | Run | Skill to follow |
+|---|---|---|
+| A bank statement **and** a ledger | `iconomics reconcile` | `bank-reconciliation` |
+| A ledger with a VAT rate column **and** a direction column or account codes | `iconomics vat-return` | `bg-vat-return` |
+| A trial balance (account + debit + credit columns) | `iconomics statements` | `financial-statements` |
+
+**All three are Python-only.** Their JavaScript implementations are not built. If
+`config/runtime.yaml` says `node`, use Python for these three anyway and tell the
+user that is what happened — silently switching runtime mid-run is exactly the
+thing the one-runtime rule exists to prevent, so name it.
+
+Two of these carry standing caveats that must reach the user, not just the log:
+the VAT declaration is **not** the official НАП form, and the chart of accounts is
+**illustrative**. Their own skills explain both; do not paraphrase them away.
 
 ## Stage 5 — Consolidated report
 

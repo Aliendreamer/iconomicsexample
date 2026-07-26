@@ -47,3 +47,23 @@ account:
 currency:
   - валута
   - currency
+# Whether a row is a sale (output VAT) or a purchase (input VAT). Required for a
+# VAT return. If absent, direction is inferred from the account code: a 7xx
+# account is treated as revenue, anything else as a purchase.
+direction:
+  - посока
+  - вид документ
+  - вид на документа
+  - тип
+  - направление
+  - direction
+  - type
+# Trial balance columns.
+debit:
+  - дебит
+  - дебитно салдо
+  - debit
+credit:
+  - кредит
+  - кредитно салдо
+  - credit

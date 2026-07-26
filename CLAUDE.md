@@ -92,6 +92,10 @@ Modules mirror each other one-for-one across languages:
 | `config` | Loads the YAML rule files; walks up to find `config/` |
 | `workbook` | **The only module that touches `.xlsx`.** Load → canonical rows; write → formatted sheets |
 | `cleanup` | The cleanup workflow: vendor normalization, currency restatement, change log |
+| `vat` | VAT classification, journals, declaration derived from the journals, VIES |
+| `coa` | Account code → statement line, from `config/coa.yaml`; sub-accounts roll up |
+| `statements` | Trial balance → P&L and balance sheet, with balance invariants |
+| `reconcile` | Tiered bank matching: exact / probable / possible |
 | `generate` | Deterministic sample-data generation at three complexity levels |
 | `cli` / `bin/iconomics.js` | Argument parsing, the stdout summary, exit codes |
 
@@ -163,7 +167,39 @@ Field naming differs by idiom and that is fine: `source_row` ⇄ `sourceRow`,
 Bulgarian сметкоплан, so the chart of accounts is treated as data to be replaced
 by the firm's real one. Do not hardcode account numbers.
 
-## Not yet built
+## Implementation status — read before claiming parity
 
-`bank-reconciliation`, `bg-vat-return`, and `financial-statements` are specified
-but not implemented. SAF-T export is deliberately deferred as a separate project.
+| Subcommand | Python | JavaScript | Parity checked |
+|---|---|---|---|
+| `cleanup` | yes | yes | yes |
+| `generate` | yes | yes | yes |
+| `reconcile` | yes | **no** | no |
+| `vat-return` | yes | **no** | no |
+| `statements` | yes | **no** | no |
+
+The "two implementations, always in step" property currently holds for `cleanup`
+and `generate` only. `tools/check_parity.py` verifies exactly those. Do not
+describe the implementations as equivalent, and do not extend the parity script to
+the newer subcommands until the JavaScript modules exist.
+
+**Next step if resuming this work:** mirror `vat.py`, `coa.py`, `statements.py` and
+`reconcile.py` into `js/src/`, wire the three subcommands into `js/bin/iconomics.js`
+with byte-identical stdout, then extend `check_parity.py`. The Python side is
+validated against the committed sample data, so it is the reference.
+
+SAF-T export remains deliberately deferred as a separate project.
+
+## Domain gotchas added by the newer workflows
+
+- **A trial balance has no dates**, so it uses `load_trial_balance`, not `load`.
+  Bank statements have no counterparty column, so they pass `STATEMENT_FIELDS` to
+  `load`. Do not weaken `REQUIRED_FIELDS` to accommodate either.
+- **Statement aggregation is debit-positive internally.** Aggregating in each
+  account's natural direction breaks any line fed by accounts with opposite normal
+  sides — a VAT receivable and payable would add rather than offset. Direction is
+  applied for presentation only.
+- **`reconcile` restates currencies before matching**, because an amount cannot be
+  matched across currencies and real 2026 ledgers still contain BGN corrections.
+  The count appears in the output `Summary`.
+- **VAT direction may be inferred** from a 7xx account code when there is no
+  direction column. That is an inference and must be surfaced to the user.

@@ -19,12 +19,15 @@ import { Money, defaultCurrencyFor } from './money.js';
 import {
   UnparseableAmount,
   UnparseableDate,
+  normalizeDirection,
   normalizeHeader,
   parseAmount,
   parseDate,
 } from './parsing.js';
 
 export const REQUIRED_FIELDS = ['date', 'counterparty', 'amount_net'];
+/** A bank statement has no counterparty column — only a description. */
+export const STATEMENT_FIELDS = ['date', 'amount_net'];
 
 export class MissingColumn extends Error {}
 
@@ -64,7 +67,7 @@ function mapColumns(headerCells, aliases) {
 const cellOf = (values, mapping, name) =>
   name in mapping && mapping[name] < values.length ? values[mapping[name]] : null;
 
-export async function load(path, aliases = null) {
+export async function load(path, aliases = null, required = REQUIRED_FIELDS) {
   const resolved = aliases ?? loadHeaderAliases();
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile(path);
@@ -81,10 +84,10 @@ export async function load(path, aliases = null) {
 
   const headers = allRows[0];
   const { mapping, unmapped } = mapColumns(headers, resolved);
-  for (const required of REQUIRED_FIELDS) {
-    if (!(required in mapping)) {
+  for (const requiredField of required) {
+    if (!(requiredField in mapping)) {
       throw new MissingColumn(
-        `${path} has no column mapping to '${required}'; add an alias in config/headers.yaml`,
+        `${path} has no column mapping to '${requiredField}'; add an alias in config/headers.yaml`,
       );
     }
   }
@@ -189,6 +192,7 @@ export async function load(path, aliases = null) {
       vatAmount,
       vatRate,
       account: isBlank(accountRaw) ? null : String(accountRaw).trim(),
+      direction: normalizeDirection(cellOf(values, mapping, 'direction')),
       extra,
     });
   }

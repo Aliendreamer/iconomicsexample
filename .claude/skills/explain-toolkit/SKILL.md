@@ -40,6 +40,10 @@ Almost every question about this project is answered locally. Route by topic:
 | Date and amount parsing rules | `py/src/iconomics/parsing.py`, function `_resolve_separators` |
 | What happens to a bad row | `py/src/iconomics/workbook.py`, function `load` |
 | Vendor merging, the change log | `py/src/iconomics/cleanup.py` |
+| VAT classification and the declaration | `py/src/iconomics/vat.py` |
+| Statement roll-up and the balance checks | `py/src/iconomics/statements.py` |
+| Bank matching tiers | `py/src/iconomics/reconcile.py` |
+| Account code → statement line | `py/src/iconomics/coa.py`, `config/coa.yaml` |
 | Sample data and what is planted in it | `tools/make_sample_data.py` |
 | Whether the two languages still agree | `tools/check_parity.py` — run it |
 
@@ -134,6 +138,39 @@ An accountant can add a header alias or change a VAT rate without touching Pytho
 That is the difference between a tool they can maintain and a tool they must file a
 request against.
 
+**The VAT declaration derives its totals from the journal rows.**
+It does not compute them alongside. A return whose declaration disagrees with its
+journals is rejected, and the usual cause is two independent computations drifting.
+With one computation they cannot disagree, and a `Reconciliation` sheet shows it.
+
+**The VAT declaration uses descriptive labels, not official cell numbers.**
+Research on 2026-07-26 found confirmation of the return's *structure* — declaration
+plus purchase and sales journals, filed by the 14th — but no citable listing of the
+numbered cells. `config/vat-rates.yaml` therefore ships `declaration_cells` empty
+for someone with the НАП form spec to fill in. A wrong cell number on a filed
+return is worse than a missing one. This is the same reasoning as the chart of
+accounts: where the authoritative source could not be verified, the toolkit is
+built to be corrected rather than trusted.
+
+**Statement figures are aggregated debit-positive internally.**
+Not in each account's "natural" direction. A statement line fed by accounts with
+opposite normal sides — a VAT receivable and a VAT payable — would add instead of
+offset. Direction is applied only for presentation, so revenue and liabilities
+still read positive. This was a real bug caught while building the sample trial
+balance, not a hypothetical.
+
+**Financial statements refuse to emit when they do not balance.**
+Both the input trial balance and the resulting balance sheet are checked, and
+failure aborts before anything is written. Someone will read a financial
+statement, so a half-correct one is worse than none.
+
+**Bank matching is tiered, and only `exact` is an answer.**
+`probable` and `possible` are proposals for a human. A wrong match hides a real
+discrepancy, which is the exact failure a reconciliation exists to catch. The
+known limitation is that counterparty matching is textual, so a latinised
+narration (`EPSILON EOOD`) will not recognise a Cyrillic ledger name
+(`Епсилон ЕООД`) and gets demoted to `possible`.
+
 **There is no test suite.**
 A deliberate choice for a demonstration project — the owner asked for it kept
 uncluttered. `tools/check_parity.py` is the one safety net. Do not add a test
@@ -172,9 +209,12 @@ When you cannot tell, ask — one question, then answer properly.
   something worth changing rather than quietly conceding.
 - **Never invent a citation.** No plausible-looking URLs, no "according to НАП"
   without a source you actually retrieved.
-- **Say when something is not built.** `bank-reconciliation`, `bg-vat-return`, and
-  `financial-statements` are specified but do not exist. SAF-T export is
-  deliberately deferred. Do not describe them as though a user could run them.
+- **Say when something is not built.** All four workflows now exist in Python.
+  **The JavaScript implementation covers only `cleanup` and `generate`** —
+  `reconcile`, `vat-return` and `statements` are Python-only, and
+  `tools/check_parity.py` therefore verifies parity for the first two only. Say
+  this plainly when asked whether the two implementations are equivalent: they are
+  not, currently. SAF-T export remains deliberately deferred.
 
 ## Worked examples
 
@@ -191,9 +231,17 @@ Regulation question. Do not answer from memory even though `CLAUDE.md` says 9% f
 accommodation. Search, cite, and confirm — and note the note's research date.
 
 **"Could this do my bank reconciliation?"**
-Capability question. The answer is no: it is designed in the spec but not
-implemented. Say so in one sentence, describe what the design says it would do,
-and do not imply a workaround exists if it does not.
+Capability question. Yes, in Python: `iconomics reconcile --bank … --ledger …`.
+Then state the two things that shape what they get — matching is tiered and only
+`exact` is settled, and there is no JavaScript implementation of this command yet.
+Do not oversell a `possible` match as a result.
+
+**"Can I file the VAT return this produces?"**
+Capability question with a regulatory edge, and the answer is no. It gets the
+figures right and proves the journals tie to the declaration, but the declaration
+uses descriptive labels rather than official НАП cell numbers, which were not
+verifiable. It is a working paper. Say so first, before describing what it does
+well — a user who files it because you buried the caveat has been badly served.
 
 **"Why two languages? Seems like a waste."**
 Rationale, and a fair challenge. Give the reason, concede the cost honestly, and
