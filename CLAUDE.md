@@ -173,19 +173,18 @@ by the firm's real one. Do not hardcode account numbers.
 |---|---|---|---|
 | `cleanup` | yes | yes | yes |
 | `generate` | yes | yes | yes |
-| `reconcile` | yes | **no** | no |
-| `vat-return` | yes | **no** | no |
-| `statements` | yes | **no** | no |
+| `reconcile` | yes | yes | yes |
+| `vat-return` | yes | yes | yes |
+| `statements` | yes | yes | yes |
 
-The "two implementations, always in step" property currently holds for `cleanup`
-and `generate` only. `tools/check_parity.py` verifies exactly those. Do not
-describe the implementations as equivalent, and do not extend the parity script to
-the newer subcommands until the JavaScript modules exist.
+All five subcommands are mirrored and diffed cell by cell, including stdout.
 
-**Next step if resuming this work:** mirror `vat.py`, `coa.py`, `statements.py` and
-`reconcile.py` into `js/src/`, wire the three subcommands into `js/bin/iconomics.js`
-with byte-identical stdout, then extend `check_parity.py`. The Python side is
-validated against the committed sample data, so it is the reference.
+**One order-dependence trap to know about:** `js-yaml` returns a plain object, and
+JavaScript reorders integer-like keys (`"101"`, `"204"`) numerically while Python
+dicts keep YAML order. Anything that iterates `coa.accounts` and takes the first
+match will therefore diverge. `lineSide` / `_line_side` resolve from the
+lexicographically smallest account code for exactly this reason — keep any new
+config iteration order-independent.
 
 SAF-T export remains deliberately deferred as a separate project.
 

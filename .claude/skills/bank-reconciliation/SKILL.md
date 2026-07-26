@@ -8,13 +8,15 @@ description: Use when matching a bank statement against a ledger — finding whi
 Matches bank statement lines against ledger entries and reports what does not
 line up. This is the job accountants most want to stop doing by hand.
 
-**Runtime: Python only.** The JavaScript implementation of this workflow is not
-built yet. Ignore `config/runtime.yaml` for this command and use Python — if the
-user has it set to `node`, say so rather than failing silently.
+Read `config/runtime.yaml` for the runtime. Both implementations exist and
+produce identical output — `tools/check_parity.py` verifies it cell by cell.
 
 ```
 python -m iconomics reconcile --bank <statement.xlsx> --ledger <ledger.xlsx> \
     --out output/ [--window 5] [--currency EUR]
+
+node js/bin/iconomics.js reconcile --bank <statement.xlsx> \
+    --ledger <ledger.xlsx> --out output/ [--window 5] [--currency EUR]
 ```
 
 ## The tiers, and why only one of them is an answer

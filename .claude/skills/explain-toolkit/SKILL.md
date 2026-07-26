@@ -209,12 +209,10 @@ When you cannot tell, ask — one question, then answer properly.
   something worth changing rather than quietly conceding.
 - **Never invent a citation.** No plausible-looking URLs, no "according to НАП"
   without a source you actually retrieved.
-- **Say when something is not built.** All four workflows now exist in Python.
-  **The JavaScript implementation covers only `cleanup` and `generate`** —
-  `reconcile`, `vat-return` and `statements` are Python-only, and
-  `tools/check_parity.py` therefore verifies parity for the first two only. Say
-  this plainly when asked whether the two implementations are equivalent: they are
-  not, currently. SAF-T export remains deliberately deferred.
+- **Say when something is not built.** All four workflows now exist in both
+  languages, and `tools/check_parity.py` verifies all five subcommands cell by
+  cell. SAF-T export remains deliberately deferred — do not describe it as
+  available. Neither is a statutory cash flow statement.
 
 ## Worked examples
 
@@ -231,10 +229,9 @@ Regulation question. Do not answer from memory even though `CLAUDE.md` says 9% f
 accommodation. Search, cite, and confirm — and note the note's research date.
 
 **"Could this do my bank reconciliation?"**
-Capability question. Yes, in Python: `iconomics reconcile --bank … --ledger …`.
-Then state the two things that shape what they get — matching is tiered and only
-`exact` is settled, and there is no JavaScript implementation of this command yet.
-Do not oversell a `possible` match as a result.
+Capability question. Yes: `iconomics reconcile --bank … --ledger …`, in either
+language. Then state the thing that shapes what they get — matching is tiered and
+only `exact` is settled. Do not oversell a `possible` match as a result.
 
 **"Can I file the VAT return this produces?"**
 Capability question with a regulatory edge, and the answer is no. It gets the

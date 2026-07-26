@@ -9,12 +9,12 @@ Builds the four documents a Bulgarian monthly filing consists of: the sales
 journal, the purchase journal, the declaration, and the VIES declaration for
 intra-EU B2B supplies.
 
-**Runtime: Python only.** The JavaScript implementation of this workflow is not
-built yet. Use Python regardless of `config/runtime.yaml`, and say so if the
-user has it set to `node`.
+Read `config/runtime.yaml` for the runtime. Both implementations exist and
+produce identical output — `tools/check_parity.py` verifies it cell by cell.
 
 ```
 python -m iconomics vat-return --in <journal.xlsx> --out output/ [--currency EUR]
+node js/bin/iconomics.js vat-return --in <journal.xlsx> --out output/
 ```
 
 ## What the input must contain

@@ -25,13 +25,12 @@ what this toolkit is for.
 | Workflow | The job it replaces | Python | JS |
 |---|---|---|---|
 | **Ledger cleanup** | Untangling an ugly export: mixed date formats, numbers stored as text, duplicate vendors, mixed BGN/EUR rows | yes | yes |
-| **Bank reconciliation** | Matching statement lines to ledger entries and chasing the ones that do not match | yes | not yet |
-| **VAT return** | Building the sales journal, purchase journal, declaration, and VIES list for the monthly filing | yes | not yet |
-| **Financial statements** | Rolling a trial balance into P&L and balance sheet, comparatives restated to EUR | yes | not yet |
+| **Bank reconciliation** | Matching statement lines to ledger entries and chasing the ones that do not match | yes | yes |
+| **VAT return** | Building the sales journal, purchase journal, declaration, and VIES list for the monthly filing | yes | yes |
+| **Financial statements** | Rolling a trial balance into P&L and balance sheet, comparatives restated to EUR | yes | yes |
 
-Parity between the two implementations is verified for `cleanup` and `generate`.
-The three newer workflows are Python-only for now, and `tools/check_parity.py`
-covers exactly what it can — it does not pretend otherwise.
+All four workflows exist in both languages, and `tools/check_parity.py` diffs every
+one of the five subcommands cell by cell.
 
 Every figure the toolkit produces carries a reference back to the source row it came from.
 Nothing is silently dropped and nothing is silently guessed — anything ambiguous is put in
@@ -39,8 +38,7 @@ front of you for a decision.
 
 ## Status
 
-**All four workflows work in Python.** The JavaScript implementation currently
-covers two of them — see the table below. The full design is in
+**All four workflows work, in both languages.** The full design is in
 [`docs/superpowers/specs/2026-07-26-iconomics-design.md`](docs/superpowers/specs/2026-07-26-iconomics-design.md).
 
 ## Try it

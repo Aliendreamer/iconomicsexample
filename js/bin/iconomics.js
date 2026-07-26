@@ -13,8 +13,18 @@ import { parseArgs } from 'node:util';
 import { basename, extname, join } from 'node:path';
 
 import { clean, toSheets } from '../src/cleanup.js';
+import { CoaError } from '../src/coa.js';
 import { COMPLEXITIES, BadComplexity, build, describe } from '../src/generate.js';
-import { MissingColumn, load, write } from '../src/workbook.js';
+import * as reconcileModule from '../src/reconcile.js';
+import * as statementsModule from '../src/statements.js';
+import * as vatModule from '../src/vat.js';
+import {
+  STATEMENT_FIELDS,
+  MissingColumn,
+  load,
+  loadTrialBalance,
+  write,
+} from '../src/workbook.js';
 
 export const SUMMARY_KEYS = ['rows in', 'rows clean', 'changes', 'exceptions', 'output'];
 const LABEL_WIDTH = Math.max(...SUMMARY_KEYS.map((key) => key.length)) + 2;
@@ -28,11 +38,19 @@ const USAGE = `usage: iconomics <command> [options]
 Bulgarian accounting toolkit
 
 commands:
-  cleanup    normalize a messy ledger export
-             --in <file.xlsx> --out <dir> [--currency EUR|BGN]
-  generate   generate a sample ledger export
-             --out <file.xlsx> [--rows N] [--complexity clean|messy|nasty]
-             [--period YYYY-MM]
+  cleanup      normalize a messy ledger export
+               --in <file.xlsx> --out <dir> [--currency EUR|BGN]
+  generate     generate a sample ledger export
+               --out <file.xlsx> [--rows N] [--complexity clean|messy|nasty]
+               [--period YYYY-MM]
+  vat-return   build the VAT journals, declaration and VIES list
+               --in <file.xlsx> --out <dir> [--currency EUR|BGN]
+  statements   roll a trial balance into P&L and balance sheet
+               --in <file.xlsx> --out <dir> [--prior <file.xlsx>]
+               [--prior-currency EUR|BGN] [--currency EUR|BGN]
+  reconcile    match a bank statement against a ledger
+               --bank <file.xlsx> --ledger <file.xlsx> --out <dir>
+               [--window N] [--currency EUR|BGN]
 `;
 
 function fail(message) {
@@ -164,6 +182,195 @@ async function runGenerate(argv) {
   return 0;
 }
 
+function parseCurrency(value) {
+  if (value !== 'EUR' && value !== 'BGN') {
+    throw new Error(`--currency must be EUR or BGN, got '${value}'`);
+  }
+  return value;
+}
+
+async function runVatReturn(argv) {
+  let parsed;
+  try {
+    parsed = parseArgs({
+      args: argv,
+      options: {
+        in: { type: 'string' },
+        out: { type: 'string' },
+        currency: { type: 'string', default: 'EUR' },
+      },
+      strict: true,
+    });
+  } catch (error) {
+    return fail(`error: ${error.message}`);
+  }
+
+  const { in: input, out, currency } = parsed.values;
+  if (!input) return fail('error: --in is required');
+  if (!out) return fail('error: --out is required');
+  try {
+    parseCurrency(currency);
+  } catch (error) {
+    return fail(`error: ${error.message}`);
+  }
+
+  let result;
+  try {
+    const ledger = await load(input);
+    result = vatModule.buildReturn(ledger, currency);
+  } catch (error) {
+    if (error instanceof MissingColumn || error instanceof vatModule.VatConfigError) {
+      process.stderr.write(`error: ${error.message}\n`);
+      return 1;
+    }
+    throw error;
+  }
+
+  const destination = join(out, `${basename(input, extname(input))}-vat-return.xlsx`);
+  await write(destination, vatModule.toSheets(result));
+
+  const lines = [
+    `vat-return: ${basename(input)}`,
+    summaryLine('sales rows', result.sales.length),
+    summaryLine('purchase rows', result.purchases.length),
+    summaryLine('vies rows', result.vies.length),
+    summaryLine('output vat', result.totals.vat_output),
+    summaryLine('input vat', result.totals.vat_input),
+    summaryLine('vat payable', result.totals.vat_net),
+    summaryLine('unclassified', result.unclassified.length),
+    summaryLine('output', destination),
+  ];
+  process.stdout.write(`${lines.join('\n')}\n`);
+  return 0;
+}
+
+async function runStatements(argv) {
+  let parsed;
+  try {
+    parsed = parseArgs({
+      args: argv,
+      options: {
+        in: { type: 'string' },
+        out: { type: 'string' },
+        prior: { type: 'string' },
+        currency: { type: 'string', default: 'EUR' },
+        'prior-currency': { type: 'string' },
+      },
+      strict: true,
+    });
+  } catch (error) {
+    return fail(`error: ${error.message}`);
+  }
+
+  const { in: input, out, prior, currency } = parsed.values;
+  const priorCurrency = parsed.values['prior-currency'];
+  if (!input) return fail('error: --in is required');
+  if (!out) return fail('error: --out is required');
+  try {
+    parseCurrency(currency);
+    if (priorCurrency) parseCurrency(priorCurrency);
+  } catch (error) {
+    return fail(`error: ${error.message}`);
+  }
+
+  let current;
+  let result;
+  try {
+    current = await loadTrialBalance(input, null, currency);
+    let priorBalance = null;
+    if (prior) {
+      priorBalance = await loadTrialBalance(prior, null, priorCurrency ?? currency);
+      if ((priorCurrency ?? currency) !== currency) {
+        priorBalance = statementsModule.restateTrialBalance(priorBalance, currency);
+      }
+    }
+    result = statementsModule.build(current, priorBalance, currency);
+  } catch (error) {
+    if (
+      error instanceof MissingColumn ||
+      error instanceof CoaError ||
+      error instanceof statementsModule.Unbalanced
+    ) {
+      process.stderr.write(`error: ${error.message}\n`);
+      return 1;
+    }
+    throw error;
+  }
+
+  const destination = join(out, `${basename(input, extname(input))}-statements.xlsx`);
+  await write(destination, statementsModule.toSheets(result));
+
+  const lines = [
+    `statements: ${basename(input)}`,
+    summaryLine('accounts', current.lines.length),
+    summaryLine('result', result.result),
+    summaryLine('assets', result.assets),
+    summaryLine('comparatives', result.hasPrior ? 'yes' : 'no'),
+    summaryLine('unmapped', result.unmapped.length),
+    summaryLine('output', destination),
+  ];
+  process.stdout.write(`${lines.join('\n')}\n`);
+  return 0;
+}
+
+async function runReconcile(argv) {
+  let parsed;
+  try {
+    parsed = parseArgs({
+      args: argv,
+      options: {
+        bank: { type: 'string' },
+        ledger: { type: 'string' },
+        out: { type: 'string' },
+        window: { type: 'string', default: String(reconcileModule.DEFAULT_WINDOW) },
+        currency: { type: 'string', default: 'EUR' },
+      },
+      strict: true,
+    });
+  } catch (error) {
+    return fail(`error: ${error.message}`);
+  }
+
+  const { bank, ledger: ledgerPath, out, window, currency } = parsed.values;
+  if (!bank) return fail('error: --bank is required');
+  if (!ledgerPath) return fail('error: --ledger is required');
+  if (!out) return fail('error: --out is required');
+  try {
+    parseCurrency(currency);
+  } catch (error) {
+    return fail(`error: ${error.message}`);
+  }
+  const windowDays = Number(window);
+  if (!Number.isInteger(windowDays)) return fail('error: --window must be a whole number');
+
+  let result;
+  try {
+    const statement = await load(bank, null, STATEMENT_FIELDS);
+    const ledger = await load(ledgerPath);
+    result = reconcileModule.reconcile(statement, ledger, windowDays, currency);
+  } catch (error) {
+    if (error instanceof MissingColumn) {
+      process.stderr.write(`error: ${error.message}\n`);
+      return 1;
+    }
+    throw error;
+  }
+
+  const destination = join(out, `${basename(bank, extname(bank))}-reconciliation.xlsx`);
+  await write(destination, reconcileModule.toSheets(result));
+
+  const lines = [
+    `reconcile: ${basename(bank)} against ${basename(ledgerPath)}`,
+    summaryLine('confirmed', result.confirmed.length),
+    summaryLine('proposed', result.proposed.length),
+    summaryLine('bank unmatched', result.unmatchedStatement.length),
+    summaryLine('ledger unmatched', result.unmatchedLedger.length),
+    summaryLine('output', destination),
+  ];
+  process.stdout.write(`${lines.join('\n')}\n`);
+  return 0;
+}
+
 export async function main(argv = process.argv.slice(2)) {
   const [command, ...rest] = argv;
   if (!command || command === '--help' || command === '-h') {
@@ -172,6 +379,9 @@ export async function main(argv = process.argv.slice(2)) {
   }
   if (command === 'cleanup') return runCleanup(rest);
   if (command === 'generate') return runGenerate(rest);
+  if (command === 'vat-return') return runVatReturn(rest);
+  if (command === 'statements') return runStatements(rest);
+  if (command === 'reconcile') return runReconcile(rest);
   return fail(`error: unknown command '${command}'\n\n${USAGE}`);
 }
 

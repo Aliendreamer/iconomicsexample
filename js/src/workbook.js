@@ -201,6 +201,92 @@ export async function load(path, aliases = null, required = REQUIRED_FIELDS) {
 }
 
 /**
+ * Read a trial balance: account code, name, debit and credit balances.
+ *
+ * A separate loader because a trial balance has no dates and no counterparties —
+ * forcing it through load() would weaken the ledger contract for every caller.
+ */
+export async function loadTrialBalance(path, aliases = null, currency = 'EUR') {
+  const resolved = aliases ?? loadHeaderAliases();
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(path);
+  const sheet = workbook.worksheets[0];
+  if (!sheet || sheet.rowCount === 0) throw new MissingColumn(`${path} is empty`);
+
+  const width = sheet.columnCount;
+  const allRows = [];
+  sheet.eachRow({ includeEmpty: true }, (row) => {
+    const values = [];
+    for (let i = 1; i <= width; i += 1) values.push(plain(row.getCell(i).value));
+    allRows.push(values);
+  });
+
+  const headers = allRows[0];
+  const { mapping } = mapColumns(headers, resolved);
+  if (!('account' in mapping)) {
+    throw new MissingColumn(
+      `${path} has no column mapping to 'account'; add an alias in config/headers.yaml`,
+    );
+  }
+  if (!('debit' in mapping) || !('credit' in mapping)) {
+    throw new MissingColumn(
+      `${path} needs both a debit and a credit column; add aliases in config/headers.yaml`,
+    );
+  }
+
+  const lines = [];
+  const problems = [];
+  const zero = new Money(new Decimal('0.00'), currency);
+
+  for (let index = 1; index < allRows.length; index += 1) {
+    const values = allRows[index];
+    const sourceRow = index + 1;
+    if (values.every(isBlank)) continue;
+
+    const accountRaw = cellOf(values, mapping, 'account');
+    if (isBlank(accountRaw)) {
+      problems.push({ sourceRow, field: 'account', raw: '(blank)', reason: 'empty cell' });
+      continue;
+    }
+
+    const amounts = {};
+    let failed = false;
+    for (const side of ['debit', 'credit']) {
+      const raw = cellOf(values, mapping, side);
+      if (isBlank(raw)) {
+        amounts[side] = zero;
+        continue;
+      }
+      try {
+        amounts[side] = new Money(parseAmount(raw), currency);
+      } catch (error) {
+        if (!(error instanceof UnparseableAmount)) throw error;
+        problems.push({
+          sourceRow,
+          field: side,
+          raw: describeRaw(raw),
+          reason: error.message,
+        });
+        failed = true;
+        break;
+      }
+    }
+    if (failed) continue;
+
+    const nameRaw = cellOf(values, mapping, 'description');
+    lines.push({
+      sourceRow,
+      account: String(accountRaw).trim(),
+      name: String(nameRaw ?? '').trim(),
+      debit: amounts.debit,
+      credit: amounts.credit,
+    });
+  }
+
+  return { lines, problems, sourcePath: String(path) };
+}
+
+/**
  * Flatten a value into something exceljs can store.
  *
  * This is the one place a float is permitted: the value is leaving the system

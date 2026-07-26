@@ -145,8 +145,15 @@ def _roll_up(balance: TrialBalance, coa: Coa, currency: str):
 
 
 def _line_side(line_name: str, coa: Coa) -> str:
-    """The normal side of the accounts mapped to this statement line."""
-    for account in coa.accounts.values():
+    """The normal side of the accounts mapped to this statement line.
+
+    Resolved from the lexicographically smallest account code on the line, not
+    from iteration order. JavaScript objects reorder integer-like keys ("101",
+    "204") numerically while Python dicts keep YAML order, so anything depending
+    on iteration order would diverge between the two implementations.
+    """
+    for code in sorted(coa.accounts):
+        account = coa.accounts[code]
         if account.line == line_name:
             return account.side
     return "debit"

@@ -8,13 +8,15 @@ description: Use when rolling a trial balance into financial statements — prof
 Rolls a trial balance into a profit and loss account and a balance sheet, with
 prior-period comparatives restated to the target currency.
 
-**Runtime: Python only.** The JavaScript implementation of this workflow is not
-built yet. Use Python regardless of `config/runtime.yaml`, and say so if the user
-has it set to `node`.
+Read `config/runtime.yaml` for the runtime. Both implementations exist and
+produce identical output — `tools/check_parity.py` verifies it cell by cell.
 
 ```
 python -m iconomics statements --in <trial-balance.xlsx> --out output/ \
     [--prior <prior-tb.xlsx>] [--prior-currency BGN] [--currency EUR]
+
+node js/bin/iconomics.js statements --in <trial-balance.xlsx> --out output/ \
+    [--prior <prior-tb.xlsx>] [--prior-currency BGN]
 ```
 
 ## What the input must contain

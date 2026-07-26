@@ -102,10 +102,8 @@ Classify each file once, at Stage 0, so this is a lookup rather than a guess:
 | A ledger with a VAT rate column **and** a direction column or account codes | `iconomics vat-return` | `bg-vat-return` |
 | A trial balance (account + debit + credit columns) | `iconomics statements` | `financial-statements` |
 
-**All three are Python-only.** Their JavaScript implementations are not built. If
-`config/runtime.yaml` says `node`, use Python for these three anyway and tell the
-user that is what happened — silently switching runtime mid-run is exactly the
-thing the one-runtime rule exists to prevent, so name it.
+All three exist in both languages, so the one-runtime rule holds for the whole
+run — keep using whatever `config/runtime.yaml` selected at Stage 0.
 
 Two of these carry standing caveats that must reach the user, not just the log:
 the VAT declaration is **not** the official НАП form, and the chart of accounts is
