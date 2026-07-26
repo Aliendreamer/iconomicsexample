@@ -67,10 +67,21 @@ is the interface, not part of the arithmetic.
 | `ledger-cleanup` | The cleanup workflow |
 | `euro-restatement` | BGN⇄EUR rules, and verifying someone else's conversion |
 | `exception-triage` | Working through rejected rows with the user |
+| `explain-toolkit` | Answering how/why questions; searches the web for regulation |
 
 `ledger-workflow` must not reimplement the others — it reads their `SKILL.md` at
 each stage. When changing a single-purpose skill, check whether the orchestrator's
 description of that stage is still accurate.
+
+`explain-toolkit` holds the **rationale catalog** — the reasoning behind decisions
+that cannot be inferred from the code (why half-up rounding, why the rate is
+hardcoded while VAT rates are config, why two implementations, why no RNG in the
+generator, why no test suite). If you change one of those decisions, update the
+catalog in the same commit, or the explainer will confidently give the old reason.
+
+It also carries the rule that **regulatory claims are never answered from memory**
+— including from the "Domain facts" section below, which has a research date and
+may be stale. Search and cite instead.
 
 Modules mirror each other one-for-one across languages:
 

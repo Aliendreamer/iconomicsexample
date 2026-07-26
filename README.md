@@ -73,7 +73,7 @@ being reasonable.
 
 ## Driving it from Claude
 
-Five skills in `.claude/skills/` turn the CLI into something you talk to:
+Six skills in `.claude/skills/` turn the CLI into something you talk to:
 
 | Skill | Say something like |
 |---|---|
@@ -82,6 +82,7 @@ Five skills in `.claude/skills/` turn the CLI into something you talk to:
 | `ledger-cleanup` | "clean up the March ledger" |
 | `euro-restatement` | "restate the 2025 figures in euro" |
 | `exception-triage` | "why were those rows rejected?" |
+| `explain-toolkit` | "why does it say 1234 when my file says 1.234?" |
 
 The skills read `config/runtime.yaml` to decide whether to run the Python or the
 JavaScript implementation, so they are written once and work for either.
@@ -106,6 +107,24 @@ not abort the run — it is reported at the end and the other files still proces
 
 The report leads with the three rows that need a human decision, because that is
 the only part of the output carrying an obligation.
+
+### The explainer skill
+
+`explain-toolkit` answers questions about the toolkit and the accounting rules
+behind it. Its central discipline is classifying the question before answering,
+because each kind has a different standard of proof:
+
+| Kind | Answered from |
+|---|---|
+| What the code does | Running it and quoting real output |
+| Why it was built this way | The design record — reasoning that isn't derivable from the code |
+| What the law requires | A citable source. Never memory |
+| What a skill can do for you | Its `SKILL.md`, including a plain "no" when that's the answer |
+
+So "does it round 0.025 up?" gets demonstrated, "why not floats?" gets the
+reasoning, and "when is the VAT return due?" gets searched and cited — even though
+a date is written in `CLAUDE.md`, because regulations drift and those notes carry a
+research date of 2026-07-26.
 
 `generate-ledger` asks two questions — how many rows, and how messy — then builds
 a file to match:
