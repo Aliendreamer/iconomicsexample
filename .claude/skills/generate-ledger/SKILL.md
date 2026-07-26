@@ -1,12 +1,13 @@
 ---
 name: generate-ledger
-description: Use when the user wants sample or test ledger data as an .xlsx file — a practice file, a demo dataset, something to try a workflow against, or a large file to check performance. Triggers on "generate a ledger", "make me some test data", "create a sample xlsx", "I need a file with 200 rows", "направи тестови данни".
+description: Use when the user wants sample or test data as an .xlsx file for any workflow — a ledger, a VAT journal, a trial balance, or a bank statement. A practice file, a demo dataset, or a large file to check performance. Triggers on "generate a ledger", "make me some test data", "create a sample xlsx", "I need a trial balance to try", "направи тестови данни".
 ---
 
-# Generate a Ledger
+# Generate Sample Data
 
-Produces an `.xlsx` export shaped like a real Bulgarian accounting extract, at a
-size and messiness the user chooses.
+Produces an `.xlsx` file shaped like a real Bulgarian accounting export — a ledger,
+a VAT journal, a trial balance or a bank statement — at a size and messiness the
+user chooses. There is a kind for every workflow.
 
 Generation is fully deterministic. The same arguments always produce the same
 file, so a generated fixture can be committed and diffed. Say this if the user
@@ -14,8 +15,22 @@ asks whether the data is random — it is not, and that is deliberate.
 
 ## Ask before generating
 
-Two things decide the output. If the user has not said, ask — but ask for both in
-**one** message, not two.
+Three things decide the output. If the user has not said, ask — but ask for all of
+them in **one** message, not three.
+
+**Which kind?** Each workflow needs a different shape of file, so pick from what
+the user actually wants to try:
+
+| `--kind` | Shape | Feeds |
+|---|---|---|
+| `ledger` (default) | Dates, counterparties, amounts, VAT | `cleanup` |
+| `journal` | Adds a direction column and 0% EU rows | `vat-return` |
+| `trial-balance` | Account codes with debit and credit balances | `statements` |
+| `bank` | Value dates, uppercased narration, amounts | `reconcile` |
+
+If the user says "everything" or wants a full demo, generate all four with the
+**same `--rows`, `--complexity` and `--period`** — that is what makes them fit
+together.
 
 **How many rows?** Any whole number. Useful reference points:
 
@@ -45,8 +60,8 @@ Read `config/runtime.yaml` for the runtime, then:
 
 | Runtime | Command |
 |---|---|
-| `python` | `python -m iconomics generate --rows N --complexity LEVEL --out PATH.xlsx` |
-| `node` | `node js/bin/iconomics.js generate --rows N --complexity LEVEL --out PATH.xlsx` |
+| `python` | `python -m iconomics generate --kind KIND --rows N --complexity LEVEL --out PATH.xlsx` |
+| `node` | `node js/bin/iconomics.js generate --kind KIND --rows N --complexity LEVEL --out PATH.xlsx` |
 
 Both produce identical files — `tools/check_parity.py` verifies this.
 
@@ -57,11 +72,36 @@ Put generated files somewhere that is not `data/raw/` unless the user explicitly
 wants a new committed sample — `data/raw/` holds the curated fixtures, and
 cluttering it makes `check_parity.py` slower for everyone.
 
+## Two things about the non-ledger kinds
+
+**A bank statement is generated to match a ledger.** `--kind bank` derives from the
+same formulas as `--kind ledger` for the same arguments, then applies what a real
+bank export does: value dates lag, narration is uppercased, roughly one payment in
+seven has not cleared, and one bank charge appears that the ledger never recorded.
+So generate both with **identical arguments** or the reconciliation is meaningless.
+At 24 messy rows the pair yields about 16 confirmed, 5 proposed, 1 unmatched bank
+line and 3 unmatched ledger rows — which is the shape a real reconciliation has.
+
+**A trial balance always balances**, because `statements` refuses one that does
+not. The difference is absorbed by retained earnings, which is where a real trial
+balance puts it. `--rows` is capped at the account pool (19 including the plug):
+repeating an account code would not be a real trial balance, so say so if the user
+asks for more.
+
 ## After generating
 
-Say how many rows, at which level, and where the file is. Then offer the obvious
-next step: running `cleanup` on it. That pairing is the whole point — generate a
-mess, then watch it get resolved with a full audit trail.
+Say which kind, how many rows, at which level, and where the file is. Then offer
+the obvious next step — the matching workflow:
+
+| Generated | Then run |
+|---|---|
+| `ledger` | `cleanup` |
+| `journal` | `vat-return` |
+| `trial-balance` | `statements` |
+| `bank` + `ledger` | `reconcile` |
+
+That pairing is the whole point — generate a mess, then watch it get resolved with
+a full audit trail.
 
 If the user chose `nasty`, mention roughly what to expect from a cleanup run: at
 40 rows it produces a handful of exceptions and a couple of dozen logged changes.

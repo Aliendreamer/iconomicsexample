@@ -29,8 +29,9 @@ npm --prefix js install                  # once
 .venv/bin/python -m iconomics cleanup --in data/raw/ledger-2026-03.xlsx --out output/
 node js/bin/iconomics.js cleanup --in data/raw/ledger-2026-03.xlsx --out output-js/
 
-# Generate sample data. Note --out is a FILE here, unlike cleanup's directory.
-.venv/bin/python -m iconomics generate --rows 100 --complexity nasty --out /tmp/practice.xlsx
+# Generate sample data for any workflow. Note --out is a FILE here, unlike
+# cleanup's directory. --kind is ledger | journal | trial-balance | bank.
+.venv/bin/python -m iconomics generate --kind bank --rows 100 --out /tmp/bank.xlsx
 ```
 
 Add `--currency BGN` to restate into BGN instead of EUR.
@@ -96,7 +97,7 @@ Modules mirror each other one-for-one across languages:
 | `coa` | Account code → statement line, from `config/coa.yaml`; sub-accounts roll up |
 | `statements` | Trial balance → P&L and balance sheet, with balance invariants |
 | `reconcile` | Tiered bank matching: exact / probable / possible |
-| `generate` | Deterministic sample-data generation at three complexity levels |
+| `generate` | Deterministic sample data, four kinds × three complexity levels |
 | `cli` / `bin/iconomics.js` | Argument parsing, the stdout summary, exit codes |
 
 ### Why `generate` has no random number generator
@@ -108,6 +109,17 @@ wrinkle is injected at a **fixed row index** (`index % 11 == 5` gets an em dash,
 **integer cents**. If you extend the generator, keep both properties — and watch
 for `str.replace` vs `String.replace`, which differ: Python replaces every
 occurrence, JavaScript only the first. Use `replaceAll` in JS.
+
+Two further traps, both hit while adding the non-ledger kinds:
+
+- **`--kind bank` must derive from the same formulas as `--kind ledger`**, or the
+  two do not reconcile and the generated pair is useless. The shared helpers
+  (`_net_cents`, `_day_of`, `_vendor_at`) exist for that reason — do not inline
+  them back.
+- **Beware coprimality when indexing two cycles.** `RATES` has period 8 with its
+  0% entry at position 7 (odd), so splitting sale/purchase on `index % 2` put every
+  0% row on the purchase side and VIES was permanently empty. The split is
+  `index % 5 < 3` precisely because 5 and 8 are coprime.
 
 ## Invariants — do not break these
 

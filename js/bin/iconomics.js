@@ -14,7 +14,14 @@ import { basename, extname, join } from 'node:path';
 
 import { clean, toSheets } from '../src/cleanup.js';
 import { CoaError } from '../src/coa.js';
-import { COMPLEXITIES, BadComplexity, build, describe } from '../src/generate.js';
+import {
+  COMPLEXITIES,
+  KINDS,
+  BadComplexity,
+  BadKind,
+  buildFor,
+  describe,
+} from '../src/generate.js';
 import * as reconcileModule from '../src/reconcile.js';
 import * as statementsModule from '../src/statements.js';
 import * as vatModule from '../src/vat.js';
@@ -40,9 +47,9 @@ Bulgarian accounting toolkit
 commands:
   cleanup      normalize a messy ledger export
                --in <file.xlsx> --out <dir> [--currency EUR|BGN]
-  generate     generate a sample ledger export
+  generate     generate sample data for any workflow
                --out <file.xlsx> [--rows N] [--complexity clean|messy|nasty]
-               [--period YYYY-MM]
+               [--period YYYY-MM] [--kind ledger|journal|trial-balance|bank]
   vat-return   build the VAT journals, declaration and VIES list
                --in <file.xlsx> --out <dir> [--currency EUR|BGN]
   statements   roll a trial balance into P&L and balance sheet
@@ -131,6 +138,7 @@ async function runGenerate(argv) {
         rows: { type: 'string', default: '20' },
         complexity: { type: 'string', default: 'messy' },
         period: { type: 'string', default: '2026-03' },
+        kind: { type: 'string', default: 'ledger' },
         out: { type: 'string' },
       },
       strict: true,
@@ -139,8 +147,11 @@ async function runGenerate(argv) {
     return fail(`error: ${error.message}`);
   }
 
-  const { rows, complexity, period, out } = parsed.values;
+  const { rows, complexity, period, kind, out } = parsed.values;
   if (!out) return fail('error: --out is required');
+  if (!KINDS.includes(kind)) {
+    return fail(`error: --kind must be one of ${KINDS.join(', ')}, got '${kind}'`);
+  }
   if (!COMPLEXITIES.includes(complexity)) {
     return fail(
       `error: --complexity must be one of ${COMPLEXITIES.join(', ')}, got '${complexity}'`,
@@ -158,12 +169,12 @@ async function runGenerate(argv) {
     return fail(`error: ${error.message}`);
   }
 
-  const spec = { rows: rowCount, complexity, year, month };
+  const spec = { rows: rowCount, complexity, year, month, kind };
   let sheet;
   try {
-    sheet = build(spec);
+    sheet = buildFor(spec);
   } catch (error) {
-    if (error instanceof BadComplexity || error instanceof Error) {
+    if (error instanceof BadComplexity || error instanceof BadKind || error instanceof Error) {
       process.stderr.write(`error: ${error.message}\n`);
       return 1;
     }

@@ -131,12 +131,31 @@ reasoning, and "when is the VAT return due?" gets searched and cited — even th
 a date is written in `CLAUDE.md`, because regulations drift and those notes carry a
 research date of 2026-07-26.
 
-`generate-ledger` asks two questions — how many rows, and how messy — then builds
-a file to match:
+`generate-ledger` asks three questions — which kind of file, how many rows, and how
+messy — then builds it:
 
 ```bash
-.venv/bin/python -m iconomics generate --rows 100 --complexity nasty --out /tmp/practice.xlsx
+.venv/bin/python -m iconomics generate --kind ledger        --rows 100 --out /tmp/ledger.xlsx
+.venv/bin/python -m iconomics generate --kind journal       --rows 100 --out /tmp/journal.xlsx
+.venv/bin/python -m iconomics generate --kind trial-balance --rows 100 --out /tmp/tb.xlsx
+.venv/bin/python -m iconomics generate --kind bank          --rows 100 --out /tmp/bank.xlsx
 ```
+
+There is a kind for every workflow, so you can practise on any of them without
+having real books to hand:
+
+| `--kind` | Feeds | Note |
+|---|---|---|
+| `ledger` | `cleanup` | The default |
+| `journal` | `vat-return` | Adds direction and 0% EU rows, so VIES is non-empty |
+| `trial-balance` | `statements` | **Always balances** — retained earnings absorbs the difference |
+| `bank` | `reconcile` | **Derived from the ledger** for the same arguments, then distorted the way a bank export is |
+
+The bank statement is the interesting one: a random statement reconciles against
+nothing, so it is generated from the same formulas as the ledger and then given
+lagged value dates, uppercased narration, roughly one payment in seven not yet
+cleared, and one bank charge the ledger never saw. Generate both with identical
+arguments and they reconcile the way real books do.
 
 | Complexity | Contains |
 |---|---|

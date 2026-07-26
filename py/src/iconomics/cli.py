@@ -16,7 +16,15 @@ from iconomics import statements as statements_module
 from iconomics import vat as vat_module
 from iconomics.cleanup import clean, to_sheets
 from iconomics.coa import CoaError
-from iconomics.generate import COMPLEXITIES, BadComplexity, Spec, build, describe
+from iconomics.generate import (
+    COMPLEXITIES,
+    KINDS,
+    BadComplexity,
+    BadKind,
+    Spec,
+    build_for,
+    describe,
+)
 from iconomics.workbook import (
     STATEMENT_FIELDS,
     MissingColumn,
@@ -72,10 +80,16 @@ def _parse_period(text: str) -> tuple[int, int]:
 
 def _run_generate(args: argparse.Namespace) -> int:
     year, month = args.period
-    spec = Spec(rows=args.rows, complexity=args.complexity, year=year, month=month)
+    spec = Spec(
+        rows=args.rows,
+        complexity=args.complexity,
+        year=year,
+        month=month,
+        kind=args.kind,
+    )
     try:
-        sheet = build(spec)
-    except (BadComplexity, ValueError) as exc:
+        sheet = build_for(spec)
+    except (BadComplexity, BadKind, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
@@ -205,6 +219,15 @@ def build_parser() -> argparse.ArgumentParser:
         default=(2026, 3),
         metavar="YYYY-MM",
         help="month the rows are dated in (default: 2026-03)",
+    )
+    generate.add_argument(
+        "--kind",
+        default="ledger",
+        choices=KINDS,
+        help="what shape of file to produce: ledger (cleanup), journal "
+        "(vat-return), trial-balance (statements), or bank (reconcile). "
+        "A bank statement is generated to correspond to the ledger for the "
+        "same arguments, so the two actually reconcile (default: ledger)",
     )
     generate.add_argument(
         "--out",

@@ -173,9 +173,21 @@ def compare_other_commands(problems):
         print(f"checked {label}")
 
 
+#: (kind, complexity) pairs to check. The ledger is checked at all three
+#: complexity levels; the other kinds at `nasty`, which exercises the most code.
+GENERATE_CASES = (
+    ("ledger", "clean"),
+    ("ledger", "messy"),
+    ("ledger", "nasty"),
+    ("journal", "nasty"),
+    ("trial-balance", "nasty"),
+    ("bank", "nasty"),
+)
+
+
 def compare_generated(problems):
     """The generator must also agree — it is deterministic in both languages."""
-    for complexity in ("clean", "messy", "nasty"):
+    for kind, complexity in GENERATE_CASES:
         with tempfile.TemporaryDirectory() as tmp:
             py_file = Path(tmp) / "py.xlsx"
             js_file = Path(tmp) / "js.xlsx"
@@ -188,6 +200,8 @@ def compare_generated(problems):
                     command
                     + [
                         "generate",
+                        "--kind",
+                        kind,
                         "--rows",
                         "40",
                         "--complexity",
@@ -200,22 +214,22 @@ def compare_generated(problems):
                     cwd=ROOT,
                 )
                 if result.returncode != 0:
-                    raise SystemExit(f"generate failed ({complexity}):\n{result.stderr}")
+                    raise SystemExit(f"generate failed ({kind}/{complexity}):\n{result.stderr}")
 
             py_cells = read_cells(py_file)["Ledger"]
             js_cells = read_cells(js_file)["Ledger"]
 
             if len(py_cells) != len(js_cells):
                 problems.append(
-                    f"generate/{complexity}: {len(py_cells)} rows vs {len(js_cells)}"
+                    f"generate/{kind}/{complexity}: {len(py_cells)} rows vs {len(js_cells)}"
                 )
             for index, (py_row, js_row) in enumerate(zip(py_cells, js_cells), start=1):
                 if py_row != js_row:
-                    problems.append(f"generate/{complexity} row {index}:")
+                    problems.append(f"generate/{kind}/{complexity} row {index}:")
                     problems.append(f"    python: {py_row}")
                     problems.append(f"    node:   {js_row}")
 
-        print(f"checked generate --complexity {complexity}")
+        print(f"checked generate --kind {kind} --complexity {complexity}")
 
 
 def main():
@@ -251,7 +265,7 @@ def main():
 
     print(
         f"\nparity OK — both implementations agree on {len(samples)} cleanup runs, "
-        f"{len(OTHER_COMMANDS)} workflow commands, and 3 generated files"
+        f"{len(OTHER_COMMANDS)} workflow commands, and {len(GENERATE_CASES)} generated files"
     )
     return 0
 
