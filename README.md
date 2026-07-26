@@ -73,10 +73,11 @@ being reasonable.
 
 ## Driving it from Claude
 
-Four skills in `.claude/skills/` turn the CLI into something you talk to:
+Five skills in `.claude/skills/` turn the CLI into something you talk to:
 
 | Skill | Say something like |
 |---|---|
+| `ledger-workflow` | "process all of these, take it from here" |
 | `generate-ledger` | "make me a test file with 100 rows" |
 | `ledger-cleanup` | "clean up the March ledger" |
 | `euro-restatement` | "restate the 2025 figures in euro" |
@@ -84,6 +85,27 @@ Four skills in `.claude/skills/` turn the CLI into something you talk to:
 
 The skills read `config/runtime.yaml` to decide whether to run the Python or the
 JavaScript implementation, so they are written once and work for either.
+
+### The workflow skill
+
+`ledger-workflow` runs the other four as one sequence — pick files, clean them,
+verify the restatement, then triage every exception across all of them together.
+It asks which files and which target currency, then hands back a single table:
+
+| File | Rows in | Clean | Changes | Exceptions |
+|---|---|---|---|---|
+| ledger-2025-12.xlsx | 4 | 4 | 8 | 0 |
+| ledger-2026-01.xlsx | 5 | 5 | 4 | 0 |
+| ledger-2026-02.xlsx | 6 | 4 | 1 | 2 |
+| ledger-2026-03.xlsx | 14 | 13 | 4 | 1 |
+| ledger-2026-q1-large.xlsx | 48 | 48 | 10 | 0 |
+| **Total** | **77** | **74** | **27** | **3** |
+
+Those are the real numbers from the committed sample data. A malformed file does
+not abort the run — it is reported at the end and the other files still process.
+
+The report leads with the three rows that need a human decision, because that is
+the only part of the output carrying an obligation.
 
 `generate-ledger` asks two questions — how many rows, and how messy — then builds
 a file to match:

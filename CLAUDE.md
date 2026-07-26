@@ -58,6 +58,20 @@ data/raw/            Deliberately messy sample inputs (committed).
 The libraries stand alone. Delete `.claude/` and everything still works — Claude
 is the interface, not part of the arithmetic.
 
+### Skills
+
+| Skill | Role |
+|---|---|
+| `ledger-workflow` | Orchestrator — sequences the four below and reports once |
+| `generate-ledger` | Deterministic sample data at three complexity levels |
+| `ledger-cleanup` | The cleanup workflow |
+| `euro-restatement` | BGN⇄EUR rules, and verifying someone else's conversion |
+| `exception-triage` | Working through rejected rows with the user |
+
+`ledger-workflow` must not reimplement the others — it reads their `SKILL.md` at
+each stage. When changing a single-purpose skill, check whether the orchestrator's
+description of that stage is still accurate.
+
 Modules mirror each other one-for-one across languages:
 
 | Module | Responsibility |
