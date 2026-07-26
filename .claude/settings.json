@@ -1,0 +1,77 @@
+{
+	"env": {
+		"CLAUDE_CODE_ENABLE_TELEMETRY": "0"
+	},
+	"permissions": {
+		"allow": [
+			"Bash(*)",
+			"Bash(dotnet *)",
+			"Bash(pnpm *)",
+			"Skill(*)",
+			"Bash(openspec *)",
+			"Bash(docker *)",
+			"Bash(docker compose *)",
+			"Bash(git checkout *)",
+			"Bash(git switch *)",
+			"Bash(git merge *)",
+			"Bash(git add *)",
+			"Bash(git stash *)",
+			"Bash(git rebase *)",
+			"Bash(git commit *)",
+			"Bash(ls *)",
+			"Bash(find *)",
+			"Bash(docker *)",
+			"Bash(docker compose *)",
+			"mcp__serena__*",
+			"mcp__postgres__*",
+			"mcp__plugin_serena_serena__*"
+		],
+		"deny": [
+			"Bash(rm -rf*)",
+			"Bash(git push --force*)",
+			"Bash(git push -f*)",
+			"Bash(git reset --hard*)",
+			"Bash(git branch -D*)",
+			"Bash(git branch --delete --force*)"
+		]
+	},
+	"enableAllProjectMcpServers": false,
+	"sandbox": {
+		"enabled": true,
+		"failIfUnavailable": true,
+		"allowUnsandboxedCommands": true,
+		"network": {
+			"allowedDomains": [
+				"registry.yarnpkg.com",
+				"registry.npmjs.org",
+				"*.npmjs.org",
+				"github.com",
+				"codeload.github.com",
+				"*.githubusercontent.com",
+				"pypi.org",
+				"files.pythonhosted.org",
+				"api.nuget.org",
+				"*.nuget.org",
+				"nuget.org",
+				"dist.nuget.org",
+				"localhost",
+				"127.0.0.1"
+			]
+		},
+		"filesystem": {
+			"allowWrite": [
+				"/usr/local/share/.yarn-global",
+				"~/.npm",
+				"~/.cache",
+				"~/.local/share/pnpm",
+				"/var/run/docker.sock"
+			],
+			"denyRead": [
+				".env",
+				".env.*",
+				"Config/appsettings.json",
+				"Config/appsettings.*.json"
+			]
+		}
+	}
+}

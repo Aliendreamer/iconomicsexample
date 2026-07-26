@@ -90,6 +90,51 @@ def compare(sample, problems):
                     problems.append(f"    node:   {js_row}")
 
 
+def compare_generated(problems):
+    """The generator must also agree — it is deterministic in both languages."""
+    for complexity in ("clean", "messy", "nasty"):
+        with tempfile.TemporaryDirectory() as tmp:
+            py_file = Path(tmp) / "py.xlsx"
+            js_file = Path(tmp) / "js.xlsx"
+
+            for command, target in (
+                ([str(PY), "-m", "iconomics"], py_file),
+                (["node", str(JS_CLI)], js_file),
+            ):
+                result = subprocess.run(
+                    command
+                    + [
+                        "generate",
+                        "--rows",
+                        "40",
+                        "--complexity",
+                        complexity,
+                        "--out",
+                        str(target),
+                    ],
+                    capture_output=True,
+                    text=True,
+                    cwd=ROOT,
+                )
+                if result.returncode != 0:
+                    raise SystemExit(f"generate failed ({complexity}):\n{result.stderr}")
+
+            py_cells = read_cells(py_file)["Ledger"]
+            js_cells = read_cells(js_file)["Ledger"]
+
+            if len(py_cells) != len(js_cells):
+                problems.append(
+                    f"generate/{complexity}: {len(py_cells)} rows vs {len(js_cells)}"
+                )
+            for index, (py_row, js_row) in enumerate(zip(py_cells, js_cells), start=1):
+                if py_row != js_row:
+                    problems.append(f"generate/{complexity} row {index}:")
+                    problems.append(f"    python: {py_row}")
+                    problems.append(f"    node:   {js_row}")
+
+        print(f"checked generate --complexity {complexity}")
+
+
 def main():
     if not PY.is_file():
         raise SystemExit("no .venv — run: uv venv --python 3.12 && uv pip install -e py/")
@@ -107,13 +152,18 @@ def main():
         compare(sample, problems)
         print(f"checked {sample.name}")
 
+    compare_generated(problems)
+
     if problems:
         print("\nPARITY FAILURES:")
         for line in problems:
             print(f"  {line}")
         return 1
 
-    print(f"\nparity OK — both implementations agree on all {len(samples)} files")
+    print(
+        f"\nparity OK — both implementations agree on {len(samples)} cleanup runs "
+        "and 3 generated files"
+    )
     return 0
 
 

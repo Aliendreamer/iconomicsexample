@@ -28,6 +28,9 @@ npm --prefix js install                  # once
 # Run a workflow — these two are interchangeable and produce identical output
 .venv/bin/python -m iconomics cleanup --in data/raw/ledger-2026-03.xlsx --out output/
 node js/bin/iconomics.js cleanup --in data/raw/ledger-2026-03.xlsx --out output-js/
+
+# Generate sample data. Note --out is a FILE here, unlike cleanup's directory.
+.venv/bin/python -m iconomics generate --rows 100 --complexity nasty --out /tmp/practice.xlsx
 ```
 
 Add `--currency BGN` to restate into BGN instead of EUR.
@@ -64,7 +67,18 @@ Modules mirror each other one-for-one across languages:
 | `config` | Loads the YAML rule files; walks up to find `config/` |
 | `workbook` | **The only module that touches `.xlsx`.** Load → canonical rows; write → formatted sheets |
 | `cleanup` | The cleanup workflow: vendor normalization, currency restatement, change log |
+| `generate` | Deterministic sample-data generation at three complexity levels |
 | `cli` / `bin/iconomics.js` | Argument parsing, the stdout summary, exit codes |
+
+### Why `generate` has no random number generator
+
+Generation must produce byte-identical files from both implementations, and
+Python's `random` and JavaScript's `Math.random` cannot be made to agree. So every
+wrinkle is injected at a **fixed row index** (`index % 11 == 5` gets an em dash,
+`index % 23 == 3` becomes a credit note, and so on) and all money is computed in
+**integer cents**. If you extend the generator, keep both properties — and watch
+for `str.replace` vs `String.replace`, which differ: Python replaces every
+occurrence, JavaScript only the first. Use `replaceAll` in JS.
 
 ## Invariants — do not break these
 

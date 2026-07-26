@@ -73,16 +73,34 @@ being reasonable.
 
 ## Driving it from Claude
 
-Three skills in `.claude/skills/` turn the CLI into something you talk to:
+Four skills in `.claude/skills/` turn the CLI into something you talk to:
 
 | Skill | Say something like |
 |---|---|
+| `generate-ledger` | "make me a test file with 100 rows" |
 | `ledger-cleanup` | "clean up the March ledger" |
 | `euro-restatement` | "restate the 2025 figures in euro" |
 | `exception-triage` | "why were those rows rejected?" |
 
 The skills read `config/runtime.yaml` to decide whether to run the Python or the
 JavaScript implementation, so they are written once and work for either.
+
+`generate-ledger` asks two questions — how many rows, and how messy — then builds
+a file to match:
+
+```bash
+.venv/bin/python -m iconomics generate --rows 100 --complexity nasty --out /tmp/practice.xlsx
+```
+
+| Complexity | Contains |
+|---|---|
+| `clean` | ISO dates, dot decimals, one spelling per vendor, all EUR — zero exceptions |
+| `messy` | Bulgarian dates, comma decimals, vendor variants, some BGN rows, Excel serial dates |
+| `nasty` | All of the above plus unreadable amounts, blank dates and counterparties, credit notes, duplicates, and an unrecognized column |
+
+Generation is deterministic — no randomness — so the same arguments always produce
+the same file, and generated fixtures can be committed and diffed. Generate a mess,
+then run `cleanup` on it: that pairing is the demo.
 
 ## Design notes
 
@@ -91,8 +109,8 @@ JavaScript implementation, so they are written once and work for either.
   tool again.
 - **Rules live in config, not code.** VAT rates and the chart of accounts are data files.
   When a rate changes, you edit YAML, not source.
-- **The libraries stand alone.** Delete the Claude skills and the code still works and the
-  tests still pass. Claude is the interface, not a load-bearing part of the arithmetic.
+- **The libraries stand alone.** Delete the Claude skills and the CLI still works. Claude
+  is the interface, not a load-bearing part of the arithmetic.
 - **Two languages, one behaviour.** `tools/check_parity.py` runs both implementations
   over every sample file and diffs the output workbooks cell by cell, so they cannot
   drift apart silently. It has already caught one real bug: openpyxl and exceljs
@@ -102,3 +120,8 @@ JavaScript implementation, so they are written once and work for either.
 
 Not a commercial accounting package, and not tax advice. It computes; you decide what to
 file. There is no direct submission to НАП — output is spreadsheets a human reviews.
+
+## Further reading
+
+- [Claude for financial services: skills](https://claude.com/resources/tutorials/claude-for-financial-services-skills)
+  — Anthropic's tutorial on building skills for finance work
